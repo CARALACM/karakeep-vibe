@@ -1,8 +1,9 @@
 import "@/globals.css";
 import "expo-dev-client";
+import "@/lib/backgroundSync"; // Must import at top level so TaskManager.defineTask runs early
 
 import { useEffect } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -12,6 +13,7 @@ import { ShareIntentProvider, useShareIntent } from "expo-share-intent";
 import { StatusBar } from "expo-status-bar";
 import { StyledStack } from "@/components/navigation/stack";
 import SplashScreenController from "@/components/SplashScreenController";
+import { registerBackgroundSync, triggerSync } from "@/lib/backgroundSync";
 import { isIOS26 } from "@/lib/ios";
 import { Providers } from "@/lib/providers";
 import { useColorScheme, useInitialAndroidBarSync } from "@/lib/useColorScheme";
@@ -44,6 +46,36 @@ export default Sentry.wrap(function RootLayout() {
       });
     }
   }, [hasShareIntent]);
+
+  // Register background sync task & sync on foreground
+  useEffect(() => {
+    registerBackgroundSync().catch(() => {});
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        triggerSync().catch(() => {});
+      }
+    });
+
+    // Periodically attempt to sync while the app is in foreground.
+    // This handles the case where connection returns while the user is using the app.
+    let isSyncing = false;
+    const interval = setInterval(() => {
+      if (AppState.currentState === "active" && !isSyncing) {
+        isSyncing = true;
+        triggerSync()
+          .catch(() => {})
+          .finally(() => {
+            isSyncing = false;
+          });
+      }
+    }, 10000);
+
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <SafeAreaProvider>
