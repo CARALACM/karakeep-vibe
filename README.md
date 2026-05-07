@@ -1,4 +1,4 @@
-# Karakeep Vibe (Android Optimized Fork)
+# Karakeep - Vibe (Android Optimized Fork)
 
 This is a personal fork of the [Karakeep](https://github.com/karakeep-app/karakeep) project, specifically focused on the Android mobile experience.
 
